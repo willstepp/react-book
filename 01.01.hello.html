@@ -12,7 +12,13 @@
     <script src="react-15.4.1/build/react-dom.js"></script>
     <script>
       ReactDOM.render(
-        React.DOM.h1(null, "hello world"),
+        React.DOM.h1({ id: 'my-heading', className: 'pretty', htmlFor: 'me' },
+          React.DOM.span(null,
+            React.DOM.em(null, "Hell"),
+            "o"
+          ),
+          " world"
+        ),
         document.getElementById("app")
       );
     </script>
