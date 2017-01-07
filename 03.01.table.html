@@ -3,6 +3,55 @@
   <head>
     <meta charset="utf-8" />
     <title>My React Table</title>
+    <style>
+      html {
+        background: white;
+        font: 16px Arial;
+      }
+
+      input {
+        font: 16px Arial;
+      }
+
+      td {
+        border-top: 1px solid black;
+        cursor: cell;
+        padding: 5px;
+      }
+
+      th {
+        cursor: pointer;
+        padding: 5px;
+      }
+
+      table {
+        border: 1px solid black;
+        margin: 20px;
+      }
+
+      .toolbar {
+        margin-left: 20px;
+      }
+
+      .toolbar a, .toolbar button { /* thanks css3buttongenerator.com! */
+        background: #3498db;
+        background-image: linear-gradient(to bottom, #3498db, #2980b9);
+        border-radius: 28px;
+        box-shadow: 0px 1px 3px #666666;
+        color: #ffffff;
+        font-size: 14px;
+        padding: 10px 20px 10px 20px;
+        text-decoration: none;
+        border: 0;
+        margin-right: 5px;
+      }
+
+      .toolbar a:hover, .toolbar button:hover {
+        background: #3cb0fd;
+        background-image: linear-gradient(to bottom, #3cb0fd, #3498db);
+        text-decoration: none;
+      }
+    </style>
   </head>
   <body>
     <div id="app">
@@ -26,15 +75,62 @@
       ];
 
       var Excel = React.createClass({
+        displayName: "Excel",
+        propTypes: {
+          headers: React.PropTypes.arrayOf(
+            React.PropTypes.string
+          ),
+          initialData: React.PropTypes.arrayOf(
+            React.PropTypes.arrayOf(
+              React.PropTypes.any
+            )
+          )
+        },
+        getInitialState: function () {
+          return {
+            data: this.props.initialData,
+            sortBy: null,
+            descending: false
+          };
+        },
+        _sort: function (e) {
+          var column = e.target.cellIndex;
+          var data = this.state.data.slice();
+          var descending = this.state.sortBy === column && !this.state.descending;
+          data.sort(function (a, b) {
+            return descending
+              ? (a[column] < b[column] ? 1 : -1)
+              : (a[column] > b[column] ? 1 : -1);
+          });
+          this.setState({
+            data:data,
+            sortBy: column,
+            descending: descending
+          });
+        },
         render: function () {
           return (
             React.DOM.table(null,
-              React.DOM.thead(null,
+              React.DOM.thead({onClick: this._sort},
                 React.DOM.tr(null,
-                  this.props.headers.map(function (title) {
-                    return React.DOM.th(null, title);
-                  })
+                  this.props.headers.map(function (title, idx) {
+                    if (this.state.sortBy === idx) {
+                      title += this.state.descending ? ' \u2191' : ' \u2193';
+                    }
+                    return React.DOM.th({key: idx}, title);
+                  }, this)
                 )
+              ),
+              React.DOM.tbody(null,
+                this.state.data.map(function (row, idx) {
+                  return (
+                    React.DOM.tr({key: idx},
+                      row.map(function (cell, idx) {
+                        return React.DOM.td({key: idx}, cell);
+                      })
+                    )
+                  );
+                })
               )
             )
           );
