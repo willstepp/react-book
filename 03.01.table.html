@@ -90,9 +90,20 @@
           return {
             data: this.props.initialData,
             sortBy: null,
-            descending: false
+            descending: false,
+            edit: null, // {row: index, cell: index}
+            search: false
           };
         },
+        _log: [],
+        _logSetState: function (newState) {
+          // remember the old state in a clone
+          this._log.push(JSON.parse(JSON.stringify(
+            this._log.length === 0 ? this.state : newState
+          )));
+          this.setState(newState);
+        },
+        _preSearchData: null,
         _sort: function (e) {
           var column = e.target.cellIndex;
           var data = this.state.data.slice();
@@ -102,13 +113,56 @@
               ? (a[column] < b[column] ? 1 : -1)
               : (a[column] > b[column] ? 1 : -1);
           });
-          this.setState({
+          this._logSetState({
             data:data,
             sortBy: column,
-            descending: descending
+            descending: descending,
+            edit: null // {row: index, cell: index}
           });
         },
-        render: function () {
+        _showEditor: function (e) {
+          this._logSetState({edit: {
+            row: parseInt(e.target.dataset.row, 10),
+            cell: e.target.cellIndex
+          }});
+        },
+        _save: function (e) {
+          e.preventDefault();
+          var input = e.target.firstChild;
+          var data = this.state.data.slice();
+          data[this.state.edit.row][this.state.edit.cell] = input.value;
+          this._logSetState({
+            edit: null, // done editing
+            data: data
+          })
+        },
+        _toggleSearch: function () {
+          if (this.state.search) {
+            this._logSetState({
+              data: this._preSearchData,
+              search: false
+            });
+            this._preSearchData = null;
+          } else {
+            this._preSearchData = this.state.data;
+            this._logSetState({
+              search: true
+            });
+          }
+        },
+        _search: function (e) {
+          var needle = e.target.value.toLowerCase();
+          if (!needle) {
+            this._logSetState({data: this._preSearchData});
+            return;
+          }
+          var idx = e.target.dataset.idx; // which column to search
+          var searchData = this._preSearchData.filter(function (row) {
+            return row[idx].toString().toLowerCase().indexOf(needle) > -1;
+          });
+          this._logSetState({data: searchData});
+        },
+        _renderTable: function () {
           return (
             React.DOM.table(null,
               React.DOM.thead({onClick: this._sort},
@@ -121,19 +175,115 @@
                   }, this)
                 )
               ),
-              React.DOM.tbody(null,
-                this.state.data.map(function (row, idx) {
+              React.DOM.tbody({onDoubleClick: this._showEditor},
+                this._renderSearch(),
+                this.state.data.map(function (row, rowIdx) {
                   return (
-                    React.DOM.tr({key: idx},
+                    React.DOM.tr({key: rowIdx},
                       row.map(function (cell, idx) {
-                        return React.DOM.td({key: idx}, cell);
-                      })
+                        var content = cell;
+
+                        var edit = this.state.edit;
+                        if (edit && edit.row === rowIdx && edit.cell === idx) {
+                          content = React.DOM.form({onSubmit: this._save},
+                            React.DOM.input({
+                              type: 'text',
+                              defaultValue: content
+                            })
+                          );
+                        }
+
+                        return React.DOM.td({key: idx, 'data-row': rowIdx}, content);
+                      }, this)
                     )
                   );
-                })
+                }, this)
               )
             )
           );
+        },
+        _download: function (format, ev) {
+          var contents = format === 'json'
+            ? JSON.stringify(this.state.data)
+            : this.state.data.reduce(function (result, row) {
+              return result
+                + row.reduce(function (rowresult, cell, idx) {
+                    return rowresult
+                    + '"'
+                    + cell.replace(/"/g, '""')
+                    + '"'
+                    + (idx < row.length - 1 ? ',' : '');
+                }, '')
+                + "\n";
+            }, '');
+          var URL = window.URL || window.webkitURL;
+          var blob = new Blob([contents], {type: 'text/'+format});
+          ev.target.href = URL.createObjectURL(blob);
+          ev.target.download = 'data.'+format;
+        },
+        _renderToolbar: function () {
+          return React.DOM.div({className: 'toolbar'},
+            React.DOM.button(
+              {
+                onClick: this._toggleSearch
+              },
+              'search'
+            ),
+            React.DOM.a({
+              onClick: this._download.bind(this, 'json'),
+              href: 'data.json'
+            }, 'Export JSON'),
+            React.DOM.a({
+              onClick: this._download.bind(this, 'csv'),
+              href: 'data.csv'
+            }, 'Export CSV')
+          );
+        },
+        _renderSearch: function () {
+          if (!this.state.search) {
+            return null;
+          }
+          return (
+            React.DOM.tr({onChange: this._search},
+              this.props.headers.map(function (_ignore, idx) {
+                return React.DOM.td({key: idx},
+                  React.DOM.input({
+                    type: 'text',
+                    'data-idx': idx
+                  })
+                );
+              })
+            )
+          );
+        },
+        render: function () {
+          return (
+            React.DOM.div(null,
+              this._renderToolbar(),
+              this._renderTable()
+            )
+          );
+        },
+        componentDidMount: function () {
+          function doReplay (e) {
+            // ALT+SHIFT+R(replay)
+            return e.altKey && e.shiftKey && e.keyCode === 82;
+          }
+          document.onkeydown = function (e) {
+            if (doReplay(e)) this._replay();
+          }.bind(this);
+        },
+        _replay: function () {
+          if (!this._log.length) {
+            console.warn("No state to replay");
+            return;
+          }
+          var idx = -1;
+          var interval = setInterval(function () {
+            idx++;
+            if (idx === this._log.length - 1) clearInterval(interval);
+            this.setState(this._log[idx]);
+          }.bind(this), 1000);
         }
       });
 
