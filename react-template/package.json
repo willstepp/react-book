@@ -1,0 +1,19 @@
+{
+  "name": "react-template",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "babel-preset-es2015": "^6.18.0",
+    "babel-preset-react": "^6.16.0",
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "watch": "^1.0.1"
+  },
+  "scripts": {
+    "start": "watch \"./scripts/build.sh\" js/source css"
+  },
+  "author": "Daniel Stepp <willstepp@gmail.com> (http://monomyth.io)",
+  "license": "ISC"
+}
